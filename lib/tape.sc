@@ -30,13 +30,9 @@ FxTape : FxBase {
             var input, local_in, tape_in;
             var shared_wow, shared_flutter, shared_mod;
             var shared_dust_trig, shared_dropout_env;
-            var dt_l, dt_r, tape_del_l, tape_del_r;
-            var head_bump_l, head_bump_r;
-            var comp_gain, sat_l, sat_r;
-            var ero_lpf_freq, ero_bass_cut;
-            var filt_l, filt_r;
-            var tone_freq, tone_filt_l, tone_filt_r;
-            var final_l, final_r;
+            var dt_mono, tape_del_mono;
+            var sat_mono, ero_lpf_freq, ero_bass_cut, filt_mono, tone_freq, tone_filt_mono, final_mono;
+            var skew_lfo, skew_r, eq_var_l, eq_var_r;
             var out_l, out_r;
             var time_kr, fb_kr, wf_kr, ero_kr, drive_kr, tone_kr;
 
@@ -49,10 +45,10 @@ FxTape : FxBase {
             tone_kr = \tone.kr(1);
 
             input = In.ar(inBus, 2);
-            local_in = LocalIn.ar(2);
+            local_in = LocalIn.ar(1); // NÚCLEO MONO
 
-            // Suma de entrada con retroalimentación (Permite auto-oscilación hasta 1.2)
-            tape_in = input + (local_in * fb_kr.clip(0.0, 1.2));
+            // Suma de entrada estéreo a mono + retroalimentación
+            tape_in = ((input[0] + input[1]) * 0.5) + (local_in * fb_kr.clip(0.0, 1.2));
 
             // Motor Físico de Modulación (Control Rate)
             shared_wow = OnePole.kr(LFNoise2.kr(Rand(0.5, 2.0)) * wf_kr * 0.005, 0.95);
@@ -63,48 +59,44 @@ FxTape : FxBase {
             shared_dust_trig = Dust.kr(ero_kr * 15);
             shared_dropout_env = Decay.kr(shared_dust_trig, 0.1);
 
-            // Líneas de Retardo Asimétricas (Efecto Haas)
-            dt_l = (time_kr + shared_mod).clip(0.01, 2.0);
-            dt_r = ((time_kr * 1.02) + 0.005 + shared_mod).clip(0.01, 2.0);
+            // Línea de Retardo MONO (Ritmo monolítico)
+            dt_mono = (time_kr + shared_mod).clip(0.01, 2.0);
+            tape_del_mono = DelayC.ar(tape_in, 2.0, dt_mono);
 
-            tape_del_l = DelayC.ar(tape_in[0], 2.0, dt_l);
-            tape_del_r = DelayC.ar(tape_in[1], 2.0, dt_r);
+            // Saturación Magnética (Drive directo)
+            sat_mono = (tape_del_mono * drive_kr).tanh;
 
-            // Saturación Magnética (Drive directo, sin comp_gain destructivo)
-            sat_l = (tape_del_l * drive_kr).tanh;
-            sat_r = (tape_del_r * drive_kr).tanh;
-
-            // Filtros Dinámicos de Erosión (Corrección Matemática de Colapso)
+            // Filtros Dinámicos de Erosión (Curva Parabólica para graves)
             ero_lpf_freq = LinExp.kr(ero_kr, 0.0, 1.0, 20000, 9000);
-            ero_bass_cut = LinLin.kr(ero_kr, 0.0, 1.0, 0.0, -18.0);
+            ero_bass_cut = (ero_kr.squared) * -18.0; // Sutil al inicio, agresivo al final
 
-            filt_l = LPF.ar(sat_l, ero_lpf_freq);
-            filt_r = LPF.ar(sat_r, ero_lpf_freq);
-            
-            filt_l = BLowShelf.ar(filt_l, 150, 1.0, ero_bass_cut);
-            filt_r = BLowShelf.ar(filt_r, 150, 1.0, ero_bass_cut);
+            filt_mono = LPF.ar(sat_mono, ero_lpf_freq);
+            filt_mono = BLowShelf.ar(filt_mono, 150, 1.0, ero_bass_cut);
 
-            // Filtro de Tono Estático (Con Lag de 0.5s para evitar Zipper Noise)
+            // Filtro de Tono Estático (Con Lag de 0.5s)
             tone_freq = Select.kr(tone_kr - 1,[18000, 8000, 4000, 1500]).lag(0.5);
-            tone_filt_l = LPF.ar(filt_l, tone_freq);
-            tone_filt_r = LPF.ar(filt_r, tone_freq);
+            tone_filt_mono = LPF.ar(filt_mono, tone_freq);
 
-            // Aplicación de Dropouts (Pérdida de volumen microscópica)
-            final_l = tone_filt_l * (1.0 - (shared_dropout_env * ero_kr).clip(0.0, 0.9));
-            final_r = tone_filt_r * (1.0 - (shared_dropout_env * ero_kr).clip(0.0, 0.9));
+            // Aplicación de Dropouts
+            final_mono = tone_filt_mono * (1.0 - (shared_dropout_env * ero_kr).clip(0.0, 0.9));
 
-            // Cierre del Bucle de Retroalimentación (SIN Head Bump para evitar resonancia infinita)
-            LocalOut.ar([final_l, final_r]);
+            // Cierre del Bucle de Retroalimentación MONO
+            LocalOut.ar(final_mono);
 
-            // Resonancia de Cabezal (Head Bump) aplicada SOLO a la salida de escucha
-            out_l = BPeakEQ.ar(final_l, 100, 1.0, drive_kr * 3.0);
-            out_r = BPeakEQ.ar(final_r, 100, 1.0, drive_kr * 3.0);
+            // --- GENERACIÓN ESTÉREO POST-CINTA (Tape Skew & Head Variance) ---
+            // L = 0ms delay. R = micro-delay caótico (0 a 1.5ms) simulando cabeceo de cinta
+            skew_lfo = LFNoise2.kr(0.1).range(0.0, 0.0015);
+            skew_r = DelayC.ar(final_mono, 0.01, skew_lfo);
+
+            // Resonancia de Cabezal (Head Bump) con tolerancias de componentes analógicos
+            eq_var_l = BPeakEQ.ar(final_mono, 100, 1.0, drive_kr * 3.0);
+            eq_var_r = BPeakEQ.ar(skew_r, 105, 1.1, drive_kr * 3.1); // Ligeramente asimétrico
 
             // Protección DC Post-Bucle y Salida
-            out_l = LeakDC.ar(out_l);
-            out_r = LeakDC.ar(out_r);
+            out_l = LeakDC.ar(eq_var_l);
+            out_r = LeakDC.ar(eq_var_r);
 
-            Out.ar(outBus,[out_l, out_r]);
+            Out.ar(outBus, [out_l, out_r]);
         }).add;
     }
 
