@@ -70,18 +70,13 @@ FxTape : FxBase {
             tape_del_l = DelayC.ar(tape_in[0], 2.0, dt_l);
             tape_del_r = DelayC.ar(tape_in[1], 2.0, dt_r);
 
-            // Resonancia de Cabezal (Head Bump a 100Hz)
-            head_bump_l = BPeakEQ.ar(tape_del_l, 100, 1.0, drive_kr * 3.0);
-            head_bump_r = BPeakEQ.ar(tape_del_r, 100, 1.0, drive_kr * 3.0);
+            // Saturación Magnética (Drive directo, sin comp_gain destructivo)
+            sat_l = (tape_del_l * drive_kr).tanh;
+            sat_r = (tape_del_r * drive_kr).tanh;
 
-            // Saturación Magnética con Auto-Gain
-            comp_gain = 1.0 / (1.0 + (drive_kr * 1.8));
-            sat_l = (head_bump_l * (1.0 + (drive_kr * 3.0))).tanh * comp_gain;
-            sat_r = (head_bump_r * (1.0 + (drive_kr * 3.0))).tanh * comp_gain;
-
-            // Filtros Dinámicos de Erosión (Sin romper la fase del bucle)
-            ero_lpf_freq = LinExp.kr(1.0 - ero_kr, 0.001, 1.0, 9000, 20000);
-            ero_bass_cut = LinExp.kr(ero_kr + 0.001, 0.001, 1.001, 0.0, -18.0);
+            // Filtros Dinámicos de Erosión (Corrección Matemática de Colapso)
+            ero_lpf_freq = LinExp.kr(ero_kr, 0.0, 1.0, 20000, 9000);
+            ero_bass_cut = LinLin.kr(ero_kr, 0.0, 1.0, 0.0, -18.0);
 
             filt_l = LPF.ar(sat_l, ero_lpf_freq);
             filt_r = LPF.ar(sat_r, ero_lpf_freq);
@@ -90,7 +85,6 @@ FxTape : FxBase {
             filt_r = BLowShelf.ar(filt_r, 150, 1.0, ero_bass_cut);
 
             // Filtro de Tono Estático (Con Lag de 0.5s para evitar Zipper Noise)
-            // tone_kr llega como 1, 2, 3, 4. Restamos 1 para el índice del array.
             tone_freq = Select.kr(tone_kr - 1,[18000, 8000, 4000, 1500]).lag(0.5);
             tone_filt_l = LPF.ar(filt_l, tone_freq);
             tone_filt_r = LPF.ar(filt_r, tone_freq);
@@ -99,14 +93,18 @@ FxTape : FxBase {
             final_l = tone_filt_l * (1.0 - (shared_dropout_env * ero_kr).clip(0.0, 0.9));
             final_r = tone_filt_r * (1.0 - (shared_dropout_env * ero_kr).clip(0.0, 0.9));
 
-            // Cierre del Bucle de Retroalimentación
+            // Cierre del Bucle de Retroalimentación (SIN Head Bump para evitar resonancia infinita)
             LocalOut.ar([final_l, final_r]);
 
-            // Protección DC Post-Bucle y Salida
-            out_l = LeakDC.ar(final_l);
-            out_r = LeakDC.ar(final_r);
+            // Resonancia de Cabezal (Head Bump) aplicada SOLO a la salida de escucha
+            out_l = BPeakEQ.ar(final_l, 100, 1.0, drive_kr * 3.0);
+            out_r = BPeakEQ.ar(final_r, 100, 1.0, drive_kr * 3.0);
 
-            Out.ar(outBus, [out_l, out_r]);
+            // Protección DC Post-Bucle y Salida
+            out_l = LeakDC.ar(out_l);
+            out_r = LeakDC.ar(out_r);
+
+            Out.ar(outBus,[out_l, out_r]);
         }).add;
     }
 
