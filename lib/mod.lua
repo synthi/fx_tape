@@ -39,18 +39,18 @@ local FxTape = fx:new{
 
 -- Asignación de métodos (Fase 2)
 function FxTape:add_params()
-    params:add_group("fx_tape", "fx tape", 7)
+    params:add_group("fx_tape", "fx tape", 8)
     FxTape:add_slot("fx_tape_slot", "slot")
     
     -- Tapers: id, name, key, min, max, default, k (curve), units
     FxTape:add_taper("fx_tape_time", "time", "time", 0.01, 2.0, 0.7, 3, "s")
-    FxTape:add_taper("fx_tape_feedback", "feedback", "feedback", 0.0, 1.2, 0.5, 0, "")
-    FxTape:add_taper("fx_tape_wow_flutter", "wow/flutter", "wow_flutter", 0.0, 1.0, 0.11, 0, "")
-    FxTape:add_taper("fx_tape_erosion", "erosion", "erosion", 0.0, 1.0, 0.01, 0, "")
+    FxTape:add_taper("fx_tape_feedback", "feedback", "feedback", 0.0, 1.2, 0.6, 0, "")
+    FxTape:add_taper("fx_tape_wow_flutter", "wow/flutter", "wow_flutter", 0.0, 1.0, 0.270, 0, "")
+    FxTape:add_taper("fx_tape_erosion", "erosion", "erosion", 0.0, 1.0, 0.025, 0, "")
     FxTape:add_taper("fx_tape_drive", "drive", "drive", 0.1, 5.0, 1.0, 0, "")
     
     -- Option: id, name, key, options_array, default_index
-    FxTape:add_option("fx_tape_tone", "tone", "tone", {"15kHz", "8kHz", "4kHz", "1.6kHz"}, 1)
+    FxTape:add_option("fx_tape_tone", "tone", "tone", {"15kHz", "8kHz", "4kHz", "1.6kHz"}, 2)
 end
 
 mod.hook.register("script_post_init", "fx tape mod post init", function()
