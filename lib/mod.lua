@@ -39,7 +39,8 @@ local FxTape = fx:new{
 
 -- Asignación de métodos (Fase 2)
 function FxTape:add_params()
-    params:add_group("fx_tape", "fx tape", 8)
+    params:add_separator("fx_tape", "fx tape")
+    params:add_group("fx_tape", "FX Tape", 8)
     FxTape:add_slot("fx_tape_slot", "slot")
     
     -- Tapers: id, name, key, min, max, default, k (curve), units
