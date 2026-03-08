@@ -89,8 +89,8 @@ FxTape : FxBase {
             skew_r = DelayC.ar(final_mono, 0.01, skew_lfo);
 
             // Resonancia de Cabezal (Head Bump) con tolerancias de componentes analógicos
-            eq_var_l = BPeakEQ.ar(final_mono, 100, 1.0, drive_kr * 3.0);
-            eq_var_r = BPeakEQ.ar(skew_r, 105, 1.1, drive_kr * 3.1); // Ligeramente asimétrico
+            eq_var_l = BPeakEQ.ar(final_mono, 98, 1.0, drive_kr * 3.0);
+            eq_var_r = BPeakEQ.ar(skew_r, 101, 1.1, drive_kr * 2.98); // Ligeramente asimétrico
 
             // Protección DC Post-Bucle y Salida
             out_l = LeakDC.ar(eq_var_l);
