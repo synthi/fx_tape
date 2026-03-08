@@ -66,15 +66,15 @@ FxTape : FxBase {
             // Saturación Magnética (Drive directo)
             sat_mono = (tape_del_mono * drive_kr).tanh;
 
-            // Filtros Dinámicos de Erosión (Curva Parabólica para graves)
+            // Filtros Dinámicos de Erosión (Transposición de rango y curva lineal suavizada)
             ero_lpf_freq = LinExp.kr(ero_kr, 0.0, 1.0, 20000, 9000);
-            ero_bass_cut = (ero_kr.squared) * -18.0; // Sutil al inicio, agresivo al final
+            ero_bass_cut = LinLin.kr(ero_kr, 0.0, 1.0, 0.0, -12.0); // Máximo atenuado a -12dB
 
             filt_mono = LPF.ar(sat_mono, ero_lpf_freq);
-            filt_mono = BLowShelf.ar(filt_mono, 150, 1.0, ero_bass_cut);
+            filt_mono = BLowShelf.ar(filt_mono, 120, 1.0, ero_bass_cut); // Frecuencia bajada a 120Hz
 
-            // Filtro de Tono Estático (Con Lag de 0.5s)
-            tone_freq = Select.kr(tone_kr - 1,[18000, 8000, 4000, 1500]).lag(0.5);
+            // Filtro de Tono Estático (Modo Switch, corrección de precisión flotante OSC)
+            tone_freq = Select.kr((tone_kr - 1).round,[15000, 8000, 4000, 1600]);
             tone_filt_mono = LPF.ar(filt_mono, tone_freq);
 
             // Aplicación de Dropouts
