@@ -66,13 +66,12 @@ FxTape : FxBase {
             // Saturación Magnética (Drive directo)
             sat_mono = (tape_del_mono * drive_kr).tanh;
 
-            supercollider
             // Filtros Dinámicos de Erosión (Ajuste a 120Hz y -14dB)
             ero_lpf_freq = LinExp.kr(ero_kr, 0.0, 1.0, 20000, 9000);
-            ero_bass_cut = LinLin.kr(ero_kr, 0.0, 1.0, 0.0, -14.0); // Máximo atenuado a -14dB
+            ero_bass_cut = LinLin.kr(ero_kr, 0.0, 1.0, 0.0, -14.0);
 
             filt_mono = LPF.ar(sat_mono, ero_lpf_freq);
-            filt_mono = BLowShelf.ar(filt_mono, 120, 1.0, ero_bass_cut); // Frecuencia ajustada a 120Hz
+            filt_mono = BLowShelf.ar(filt_mono, 120, 1.0, ero_bass_cut);
 
             // Filtro de Tono Estático (Modo Switch, corrección de precisión flotante OSC)
             tone_freq = Select.kr((tone_kr - 1).round,[15000, 8000, 4000, 1600]);
@@ -98,7 +97,7 @@ FxTape : FxBase {
 
             // Resonancia de Cabezal (Head Bump) con tolerancias de componentes analógicos
             eq_var_l = BPeakEQ.ar(cross_l, 98, 1.0, drive_kr * 3.0);
-            eq_var_r = BPeakEQ.ar(cross_r, 101, 1.1, drive_kr * 2.98); // Ligeramente asimétrico
+            eq_var_r = BPeakEQ.ar(cross_r, 101, 1.1, drive_kr * 2.98);
 
             // Protección DC Post-Bucle y Salida
             out_l = LeakDC.ar(eq_var_l);
